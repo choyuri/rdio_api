@@ -1,0 +1,17 @@
+{application, rdio_api,
+ [{description, "Rdio API wrapper with automatic rate limiting and access token refresh."},
+  {vsn, "2"},
+  {registered, []},
+  {applications, [kernel,
+                  stdlib,
+                  inets,
+                  ssl]},
+  {mod, {rdio_api_app, []}},
+  {env, [
+         %% {client_id, ""}
+         %% {client_secret, ""}
+
+         %% Format: {Calls, Timeframe}
+         %% Max number of API calls per timeframe in milliseconds.
+         {rate_limit, {10, 1000}}
+        ]}]}.
