@@ -142,10 +142,12 @@ handle_token_endpoint_response(200, Body) ->
     {ok, #tokens{access_token = binary_to_list(AccessToken),
                  refresh_token = binary_to_list(RefreshToken),
                  expires = ExpiresAt}};
-handle_token_endpoint_response(400, Body) ->
+handle_token_endpoint_response(400 = Code, Body) ->
     #{<<"error">> := Error,
       <<"error_description">> := ErrorDescription} = jiffy:decode(Body, [return_maps]),
-    {error, {Error, ErrorDescription}}.
+    {error, {Code, {Error, ErrorDescription}}};
+handle_token_endpoint_response(Code, Body) ->
+    {error, {Code, Body}}.
 
 now_seconds() ->
     {Mega, Secs, _} = now(),
