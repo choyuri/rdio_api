@@ -3,7 +3,8 @@
 -compile(export_all).
 
 suite() ->
-    [{timetrap, {minutes, 1}}].
+    [{require, rdio_api_refresh_token}, 
+     {timetrap, {minutes, 1}}].
 
 all() ->
     [invalid_request_token, expired_access_token, invalid_access_token, {group, parallel_expired_access_token}].
@@ -13,7 +14,7 @@ groups() ->
 
 init_per_suite(Config) ->
     {ok, Started} = application:ensure_all_started(rdio_api),
-    [{require, rdio_api_refresh_token}, {apps_started, Started}|Config].
+    [{apps_started, Started}|Config].
 
 end_per_suite(Config) ->
     lists:map(fun application:stop/1, lists:reverse(?config(apps_started, Config))).
@@ -30,7 +31,9 @@ invalid_request_token(_Config) ->
       % for specific error.
 
 expired_access_token(_Config) ->
-    Tokens = rdio_api_authorization:tokens(ct:get_config(rdio_api_refresh_token), "expired", 0),
+    RefreshToken = ct:get_config(rdio_api_refresh_token),
+    ct:log("RefreshToken = ~p", [RefreshToken]),
+    Tokens = rdio_api_authorization:tokens(RefreshToken, "expired", 0),
     {ok, _Result, NewTokens} = rdio_api:request("currentUser", [], Tokens),
     true = Tokens =/= NewTokens.
 
