@@ -33,7 +33,7 @@ Using the `rdio_api_authorization:tokens_with_AuthorizationMethod` or `rdio_api_
 
 #### Accessors
 
-You can use the functions
+Manually create tokens or access the internals of the opaque type:
 
 ```erl
 rdio_api_authorization:refresh_token(Tokens) -> string()
@@ -42,35 +42,29 @@ rdio_api_authorization:expires(Tokens) -> non_neg_integer()
 rdio_api_authorization:tokens(RefreshToken :: string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
 ```
 
-to manually create tokens or extract data from the opaque type.
-
 #### Authorization Code Grant
 
-Use
+Obtain the URL you have to redirect the user to. You can also obtain the Client ID usign `rdio_api_authorization:client_id() -> string()` and construct the URL manually.
 
 ```erl
 rdio_api_authorization:authorization_url(RedirectUri :: string()) -> string()
 ```
 
-to obtain the URL you have to redirect the user to. You can also obtain the Client ID usign `rdio_api_authorization:client_id() -> string()` and construct the URL manually.
-
-When the user has allowed your application to access their account and you have received the authorization code, use
+When the user has allowed your application to access their account and you have received the authorization code, turn it into the opque tokens type:
 
 ```erl
 rdio_api_authorization:tokens_with_authorization_code(Code :: string(), RedirectUri :: string()) -> {ok, tokens()} | {error, Reason}
 ```
 
-to obtain the tokens.
-
 ### Requests
 
-You can make a simple request to the API by using
+A simple API request:
 
 ```erl
-rdio_api:request(Method :: string(), Args :: [{Key :: string(), Value :: string()}], Tokens :: tokens()) -> {ok, MethodResult :: map(), Tokens :: tokens()}
+rdio_api:request(Method :: string(), Arguments :: [{Key :: string(), Value :: string()}], Tokens :: tokens()) -> {ok, MethodResult :: map(), Tokens2 :: tokens()}
 ```
 
-Sometimes you may want to perform multiple requests in quick succession, for this you can use
+Sometimes you may want to perform multiple requests in quick succession, for that you can use:
 
 ```erl
 rdio_api:run(fun (Request) ->
@@ -80,4 +74,4 @@ rdio_api:run(fun (Request) ->
 end)
 ```
 
-`Request` takes the same arguments as `rdio_api:request/3`. The minimal delay between the requests is the timeframe specified in the applications rate limit, e.g. one second for regular applications.
+`Request` takes the same arguments as `rdio_api:request/3`. The maximal (forced) delay between the requests is the timeframe specified in the applications rate limit, e.g. one second for regular applications. Note that this method may, under low load, actually be slower then calling `rdio_api:request/3` multiple times. Anyway, if you want a garentee, use this function.
