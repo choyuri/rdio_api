@@ -1,5 +1,7 @@
 # Rdio API
 
+[![Build Status](https://travis-ci.org/luisgerhorst/rdio_api.svg)](https://travis-ci.org/luisgerhorst/rdio_api)
+
 This is an Erlang wrapper for the [Rdio API](http://www.rdio.com/developers/). It automatically limits the number of requests according to the API's rate limit and refreshes the OAuth 2.0 access tokens when they expire.
 
 ## Config
