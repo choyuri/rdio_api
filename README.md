@@ -74,4 +74,4 @@ rdio_api:run(fun (Request) ->
 end)
 ```
 
-`Request` takes the same arguments as `rdio_api:request/3`. The maximal (forced) delay between the requests is the timeframe specified in the applications rate limit, e.g. one second for regular applications. Note that this method may, under low load, actually be slower then calling `rdio_api:request/3` multiple times. Anyway, if you want a garentee, use this function.
+`Request` behaves like `rdio_api:request/3`, but here the (forced) delay between the requests is _always_ the timeframe specified in the applications rate limit, e.g. one second for regular applications. Note that this method may, under low load, actually be slower then calling `rdio_api:request/3` multiple times. Anyway, if you want a guarantee, use this function.
