@@ -64,7 +64,7 @@ A simple API request:
 rdio_api:request(Method :: string(), Arguments :: [{Key :: string(), Value :: string()}], Tokens :: tokens()) -> {ok, MethodResult :: map(), NewTokens :: tokens()} | {error, #{ErrorType => ErrorReason} | #{tokens => NewTokens, ErrorType => ErrorReason}}
 ```
 
-The `MethodResult` is a map where both keys and values are binaries.
+`MethodResult` is the parsed response from Rdio (using [`jiffy:decode/2`](https://github.com/davisp/jiffy#jiffydecode12)).
 
 Sometimes you may want to perform multiple requests in quick succession, for that you can use:
 
@@ -82,7 +82,7 @@ end)
 
 ### Complete setup guide
 
-Create an app at [www.rdio.com/developers/your-apps](http://www.rdio.com/developers/your-apps/).
+Create an app at [www.rdio.com/developers/your-apps](http://www.rdio.com/developers/your-apps/). Add `http://localhost/` as redirect URI.
 
 ```
 $ cd /path/to/rdio_api
@@ -92,11 +92,11 @@ $ rebar shell
 1> application:set_env(rdio_api, client_id, "MyAppsClientIDHere").
 2> application:set_env(rdio_api, client_secret, "MyAppsClientSecretHere").
 3> application:ensure_all_started(rdio_api).
-4> RedirectUri = "http://localhost".
+4> RedirectUri = "http://localhost/".
 5> rdio_api_authorization:authorization_url(RedirectUri).
 ```
 
-Open the shown URL in your browser and allow your app to access your account. You will be redirected to a URL that looks like this `http://localhost?code=Code`, copy the `Code` part to your clipboard and proceed.
+Open the shown URL in your browser and allow your app to access your account. You will be redirected to a URL that looks like this `http://localhost/?code=Code`, copy the `Code` part to your clipboard and proceed.
 
 ```
 6> Code = "MyCopiedCodeHere".
