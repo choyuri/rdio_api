@@ -61,7 +61,7 @@ rdio_api_authorization:tokens_with_authorization_code(Code :: string(), Redirect
 A simple API request:
 
 ```erl
-rdio_api:request(Method :: string(), Arguments :: [{Key :: string(), Value :: string()}], Tokens :: tokens()) -> {ok, MethodResult :: map(), Tokens2 :: tokens()}
+rdio_api:request(Method :: string(), Arguments :: [{Key :: string(), Value :: string()}], Tokens :: tokens()) -> {ok, MethodResult :: map(), NewTokens :: tokens()} | {error, #{ErrorType => ErrorReason} | #{tokens => NewTokens, ErrorType => ErrorReason}}
 ```
 
 Sometimes you may want to perform multiple requests in quick succession, for that you can use:
