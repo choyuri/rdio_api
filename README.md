@@ -48,7 +48,7 @@ Using the `rdio_api_authorization:tokens_with_AuthorizationMethod` or `rdio_api_
 In addition to that the following types apply in the documentation:
 
 ```erl
-TokenEndpointResponse = {ok, tokens()} | {error, {400, {Error :: binary(), ErrorDesciption :: binary()} | {HttpCode, HttpBody}}}
+TokenEndpointResponse = {ok, tokens()} | {error, {400, {Error :: binary(), ErrorDesciption :: binary()}} | {HttpCode, HttpBody}}
 ```
 
 #### Accessors
