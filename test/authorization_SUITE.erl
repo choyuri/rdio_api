@@ -17,7 +17,7 @@ end_per_suite(Config) ->
 
 token_endpoint_and_current_user_request(_Config) ->
     RedirectUri = "http://localhost:8080/oauth-callback",
-    Url = rdio_api_authorization:authorization_url(RedirectUri),
+    Url = rdio_api_authorization:code_authorization_url(RedirectUri),
     ct:print(" Open ~n~s~n in a browser and send the \"code\" query parameter of the URI you are redirected to, to ~p using~nlist_to_pid(\"~p\") ! Code.", [Url, self(), self()]),
     ct:timetrap(infinity),
     Code = receive Msg -> Msg end,

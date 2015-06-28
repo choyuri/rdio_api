@@ -1,18 +1,36 @@
 -module(rdio_api_authorization).
 
-%% Tokens Refresh (App intern)
+%% Tokens Refresh
 -export([refresh_tokens_with_request_fun/2, refresh_tokens_when_expired_with_request_fun/2]).
 
+%% All following exports are part of the applications public API. Feel free to
+%% use them anywhere you want.
+
 %% Authorization Code Grant
--export([authorization_url/1, tokens_with_authorization_code/2]).
+-export([code_authorization_url/1, code_authorization_url/2, code_authorization_url/3, 
+         tokens_with_authorization_code/2]).
+
+%% Implicit Grant
+-export([token_authorization_url/1, token_authorization_url/2, token_authorization_url/3]).
+
+%% Resource Owner Credential
+-export([tokens_with_resource_owner_credentials/2, tokens_with_resource_owner_credentials/3]).
+
+%% Client Credentials
+-export([tokens_with_client_credentials/0, tokens_with_client_credentials/1]).
+
+%% Device Code
+-export([start_device_code_grant/0, start_device_code_grant/1,
+         tokens_with_device_code/1]).
 
 %% Client
 -export([client_id/0, client_secret/0]).
 -export_type([client_id/0, client_secret/0]).
+
 %% Tokens
--export([tokens/3, 
+-export([tokens/3,
          refresh_token/1, access_token/1, expires/1]).
--export_type([tokens/0, 
+-export_type([tokens/0,
               refresh_token/0, access_token/0]).
 
 %% ===================================================================
@@ -21,6 +39,7 @@
 
 -define(RdioTokenEndpointUrl, "https://services.rdio.com/oauth2/token").
 -define(RdioAuthorizationEndpointUrl, "https://www.rdio.com/oauth2/authorize").
+-define(RdioDeviceCodeEndpointUrl, "https://services.rdio.com/oauth2/device/code/generate").
 
 %% ===================================================================
 %% Types
@@ -85,21 +104,104 @@ client_secret() ->
 %% Authorization Code Grant
 %% ===================================================================
 
--spec authorization_url(string()) -> string().
-authorization_url(RedirectUri) ->
-    ?RdioAuthorizationEndpointUrl ++
-        "?response_type=code" ++
-        "&client_id=" ++ client_id() ++
-        "&redirect_uri=" ++ http_uri:encode(RedirectUri).
+code_authorization_url(RedirectUri) ->
+    code_authorization_url(RedirectUri, undefined, undefined).
+
+code_authorization_url(RedirectUri, Scope) ->
+    code_authorization_url(RedirectUri, Scope, undefined).
+
+code_authorization_url(RedirectUri, Scope, State) ->
+    authorization_url("code", RedirectUri, Scope, State).
 
 -spec tokens_with_authorization_code(string(), string()) -> maybeTokens().
 tokens_with_authorization_code(Code, RedirectUri) ->
     {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
         rdio_api_requester_manager:request(
           ?RdioTokenEndpointUrl,
-          [{<<"grant_type">>, <<"authorization_code">>},
-           {<<"code">>, Code},
-           {<<"redirect_uri">>, RedirectUri}],
+          [{"grant_type", "authorization_code"},
+           {"code", Code},
+           {"redirect_uri", RedirectUri}],
+          [basic_http_auth_client_verification_header()]),
+    handle_token_endpoint_response(HttpCode, Body).
+
+%% ===================================================================
+%% Implicit Grant
+%% ===================================================================
+
+token_authorization_url(RedirectUri) ->
+    token_authorization_url(RedirectUri, undefined, undefined).
+
+token_authorization_url(RedirectUri, Scope) ->
+    token_authorization_url(RedirectUri, Scope, undefined).
+
+token_authorization_url(RedirectUri, Scope, State) ->
+    authorization_url("token", RedirectUri, Scope, State).
+
+%% ===================================================================
+%% Resource Owner Credential
+%% ===================================================================
+
+tokens_with_resource_owner_credentials(Username, Password) ->
+    tokens_with_resource_owner_credentials(Username, Password, undefined).
+
+tokens_with_resource_owner_credentials(Username, Password, Scope) ->
+    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
+        rdio_api_requester_manager:request(
+          ?RdioTokenEndpointUrl,
+          [{"grant_type", "password"},
+           {"username", Username},
+           {"password", Password}] ++ 
+              case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+          [basic_http_auth_client_verification_header()]),
+    handle_token_endpoint_response(HttpCode, Body).
+
+%% ===================================================================
+%% Client Credentials
+%% ===================================================================
+
+tokens_with_client_credentials() ->
+    tokens_with_client_credentials(undefined).
+
+tokens_with_client_credentials(Scope) ->
+    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
+        rdio_api_requester_manager:request(
+          ?RdioTokenEndpointUrl,
+          [{"grant_type", "client_credentials"}] ++ 
+              case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+          [basic_http_auth_client_verification_header()]),
+    handle_token_endpoint_response(HttpCode, Body).
+
+%% ===================================================================
+%% Device Code
+%% ===================================================================
+
+start_device_code_grant() ->
+    start_device_code_grant(undefined).
+
+start_device_code_grant(Scope) ->
+    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
+        rdio_api_requester_manager:request(
+          ?RdioDeviceCodeEndpointUrl,
+          [{"client_id", client_id()}] ++ 
+              case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+          []),
+    handle_device_code_grant_response(HttpCode, Body).
+
+handle_device_code_grant_response(200, Body) ->
+    #{<<"device_code">> := DeviceCode,
+      <<"verification_url">> := VerificationUrl,
+      <<"expires_in_s">> := ExpiresIn,
+      <<"interval_s">> := Interval} = jiffy:decode(Body),
+    {ok, DeviceCode, VerificationUrl, now_seconds() + ExpiresIn, Interval};
+handle_device_code_grant_response(UnexpectedCode, Body) ->
+    {error, {UnexpectedCode, Body}}.
+
+tokens_with_device_code(DeviceCode) ->
+    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
+        rdio_api_requester_manager:request(
+          ?RdioTokenEndpointUrl,
+          [{"grant_type", "device_code"},
+           {"device_code", DeviceCode}],
           [basic_http_auth_client_verification_header()]),
     handle_token_endpoint_response(HttpCode, Body).
 
@@ -123,6 +225,15 @@ refresh_tokens_with_request_fun(#tokens{refresh_token = RT}, RequestFun) ->
 %% Private
 %% ===================================================================
 
+-spec authorization_url(string(), string(), string(), string()) -> string().
+authorization_url(Type, RedirectUri, Scope, State) ->
+    ?RdioAuthorizationEndpointUrl ++ "?" ++
+        rdio_api_request:uri_params_encode(
+          [{"response_type", Type},
+           {"client_id", client_id()},
+           {"redirect_uri", RedirectUri}] ++
+              case Scope of undefined -> []; _ -> [{"scope", Scope}] end ++
+              case State of undefined -> []; _ -> [{"state", State}] end).
 
 tokens_with_refresh_token_and_request_fun(RefreshToken, RequestFun) ->
     {ok, {{_Version, Code, _Msg}, _Header, Body}} =
@@ -155,4 +266,3 @@ now_seconds() ->
 
 basic_http_auth_client_verification_header() ->
     {"Authorization", "Basic " ++ base64:encode_to_string(client_id() ++ ":" ++ client_secret())}.
-

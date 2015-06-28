@@ -31,6 +31,26 @@ application:ensure_all_started(rdio_api)
 
 Using the `rdio_api_authorization:tokens_with_AuthorizationMethod` or `rdio_api_authorization:tokens/3` functions you can obtain the opaque type `tokens()`. You pass the type into every API request and get potentially refreshed tokens back.
 
+#### Types
+
+`rdio_api_authorization` exports the following types:
+
+```erl
+-opaque tokens().
+
+-type refresh_token() :: string().
+-type access_token() :: string().
+
+-type client_id() :: string().
+-type client_secret() :: string().
+```
+
+In addition to that the following types apply in the documentation:
+
+```erl
+TokenEndpointResponse = {ok, tokens()} | {error, {400, {Error :: binary(), ErrorDesciption :: binary()} | {HttpCode, HttpBody}}}
+```
+
 #### Accessors
 
 Manually create tokens or access the internals of the opaque type:
@@ -42,18 +62,72 @@ rdio_api_authorization:expires(Tokens) -> non_neg_integer()
 rdio_api_authorization:tokens(RefreshToken :: string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
 ```
 
+```erl
+rdio_api_authorization:client_id() -> string()
+rdio_api_authorization:client_secret() -> string()
+```
+
 #### Authorization Code Grant
 
 Obtain the URL you have to redirect the user to. You can also obtain the Client ID usign `rdio_api_authorization:client_id() -> string()` and construct the URL manually.
 
 ```erl
-rdio_api_authorization:authorization_url(RedirectUri :: string()) -> string()
+rdio_api_authorization:code_authorization_url(RedirectUri :: string()) -> string()
+rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string()) -> string()
+rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string(), State :: string()) -> string()
 ```
 
 When the user has allowed your application to access their account and you have received the authorization code, turn it into the opque tokens type:
 
 ```erl
-rdio_api_authorization:tokens_with_authorization_code(Code :: string(), RedirectUri :: string()) -> {ok, tokens()} | {error, Reason}
+rdio_api_authorization:tokens_with_authorization_code(Code :: string(), RedirectUri :: string()) -> TokenEndpointResponse
+```
+
+#### Implicit Grant
+
+Get the URL you have to redirect the user to:
+
+```erl
+rdio_api_authorization:token_authorization_url(RedirectUri :: string()) -> string()
+rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string()) -> string()
+rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string(), State :: string()) -> string()
+```
+
+#### Resource Owner Credential
+
+After polling the user for his username and password, you can retreive the tokens:
+
+```erl
+tokens_with_resource_owner_credentials(Username :: string(), Password :: string()) -> TokenEndpointResponse
+tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string()) -> TokenEndpointResponse
+```
+
+#### Client Credentials
+
+```erl
+tokens_with_client_credentials() -> TokenEndpointResponse
+tokens_with_client_credentials(Scope :: string()) -> TokenEndpointResponse
+```
+
+#### Device Code Grant
+
+```erl
+start_device_code_grant() -> Return
+start_device_code_grant(Scope) -> Return
+```
+
+Types:
+
+```erl
+Return = {ok, DeviceCode :: binary(), VerificationUrl :: binary(), ExpirationTimestamp, PollingInterval} | {error, {HttpCode, HttpBody}}
+```
+
+Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time (in seconds) when it is expected to expire.
+
+You can then poll the token endpoint with:
+
+```erl
+tokens_with_device_code(DeviceCode :: binary() | string()) -> TokenEndpointResponse
 ```
 
 ### Requests

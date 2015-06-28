@@ -1,7 +1,6 @@
 -module(rdio_api_request).
 
-%% Requester API
--export([request/1]).
+-export([request/1, uri_params_encode/1]).
 
 %% ===================================================================
 %% Raw function used to make a request.

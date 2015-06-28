@@ -1,6 +1,6 @@
 -module(rdio_api).
 
-%% Application API
+%% Public Application API
 -export([request/3, run/1]).
 
 %% ===================================================================
