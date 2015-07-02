@@ -50,8 +50,10 @@ Using the `rdio_api_authorization:tokens_with_AuthorizationMethod` or `rdio_api_
 In addition to that, the following types apply in the documentation:
 
 ```erl
-TokenEndpointResponse = {ok, tokens()} | {error, {400, {Error :: binary(), ErrorDesciption :: binary()}} | {HttpCode, HttpBody}}
+TokenEndpointResponse = {ok, tokens()} | {error, {rdio, Error :: binary(), ErrorDescription :: binary()} | {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
+
+where `HttpcRequestResult` is the second part of the `ok`-Tuple returned by `httpc:request/1,2,4,5` and `HttpcErrorReason` the second part of the `error`-Tuple. `{rdio, Error, ErrorDescription` represents an error returned by the Rdio API, as documented [here](http://www.rdio.com/developers/docs/web-service/oauth2/overview/ref-failure).
 
 #### Accessors
 
@@ -120,10 +122,10 @@ rdio_api_authorization:start_device_code_grant() -> Return
 rdio_api_authorization:start_device_code_grant(Scope :: string() | undefined) -> Return
 ```
 
-Types:
+where
 
 ```erl
-Return = {ok, DeviceCode :: binary(), VerificationUrl :: binary(), ExpirationTimestamp, PollingInterval} | {error, {HttpCode, HttpBody}}
+Return = {ok, DeviceCode :: binary(), VerificationUrl :: binary(), ExpirationTimestamp, PollingInterval} | {error, {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
 
 Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time (in seconds) when it is expected to expire.

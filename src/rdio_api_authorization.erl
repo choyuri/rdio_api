@@ -115,14 +115,13 @@ code_authorization_url(RedirectUri, Scope, State) ->
 
 -spec tokens_with_authorization_code(string(), string()) -> maybeTokens().
 tokens_with_authorization_code(Code, RedirectUri) ->
-    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
-        rdio_api_requester_manager:request(
-          ?RdioTokenEndpointUrl,
-          [{"grant_type", "authorization_code"},
-           {"code", Code},
-           {"redirect_uri", RedirectUri}],
-          [basic_http_auth_client_verification_header()]),
-    handle_token_endpoint_response(HttpCode, Body).
+    handle_token_endpoint_response(
+      rdio_api_requester_manager:request(
+        ?RdioTokenEndpointUrl,
+        [{"grant_type", "authorization_code"},
+         {"code", Code},
+         {"redirect_uri", RedirectUri}],
+        [basic_http_auth_client_verification_header()])).
 
 %% ===================================================================
 %% Implicit Grant
@@ -145,15 +144,14 @@ tokens_with_resource_owner_credentials(Username, Password) ->
     tokens_with_resource_owner_credentials(Username, Password, undefined).
 
 tokens_with_resource_owner_credentials(Username, Password, Scope) ->
-    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
-        rdio_api_requester_manager:request(
-          ?RdioTokenEndpointUrl,
-          [{"grant_type", "password"},
-           {"username", Username},
-           {"password", Password}] ++ 
-              case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
-          [basic_http_auth_client_verification_header()]),
-    handle_token_endpoint_response(HttpCode, Body).
+    handle_token_endpoint_response(
+      rdio_api_requester_manager:request(
+        ?RdioTokenEndpointUrl,
+        [{"grant_type", "password"},
+         {"username", Username},
+         {"password", Password}] ++ 
+            case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+        [basic_http_auth_client_verification_header()])).
 
 %% ===================================================================
 %% Client Credentials
@@ -163,13 +161,12 @@ tokens_with_client_credentials() ->
     tokens_with_client_credentials(undefined).
 
 tokens_with_client_credentials(Scope) ->
-    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
-        rdio_api_requester_manager:request(
-          ?RdioTokenEndpointUrl,
-          [{"grant_type", "client_credentials"}] ++ 
-              case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
-          [basic_http_auth_client_verification_header()]),
-    handle_token_endpoint_response(HttpCode, Body).
+    handle_token_endpoint_response(
+      rdio_api_requester_manager:request(
+        ?RdioTokenEndpointUrl,
+        [{"grant_type", "client_credentials"}] ++ 
+            case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+        [basic_http_auth_client_verification_header()])).
 
 %% ===================================================================
 %% Device Code
@@ -179,31 +176,31 @@ start_device_code_grant() ->
     start_device_code_grant(undefined).
 
 start_device_code_grant(Scope) ->
-    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
-        rdio_api_requester_manager:request(
-          ?RdioDeviceCodeEndpointUrl,
-          [{"client_id", client_id()}] ++ 
-              case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
-          []),
-    handle_device_code_grant_response(HttpCode, Body).
+    handle_device_code_grant_response(
+      rdio_api_requester_manager:request(
+        ?RdioDeviceCodeEndpointUrl,
+        [{"client_id", client_id()}] ++ 
+            case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+        [])).
 
-handle_device_code_grant_response(200, Body) ->
+handle_device_code_grant_response({ok, {{_Version, 200, _Msg}, _Header, Body}}) ->
     #{<<"device_code">> := DeviceCode,
       <<"verification_url">> := VerificationUrl,
       <<"expires_in_s">> := ExpiresIn,
       <<"interval_s">> := Interval} = jiffy:decode(Body),
     {ok, DeviceCode, VerificationUrl, now_seconds() + ExpiresIn, Interval};
-handle_device_code_grant_response(UnexpectedCode, Body) ->
-    {error, {UnexpectedCode, Body}}.
+handle_device_code_grant_response({ok, Res}) ->
+    {error, {unexpected_response, Res}};
+handle_device_code_grant_response({error, Reason}) ->
+    {error, {httpc, Reason}}.
 
 tokens_with_device_code(DeviceCode) ->
-    {ok, {{_Version, HttpCode, _Msg}, _Header, Body}} =
-        rdio_api_requester_manager:request(
-          ?RdioTokenEndpointUrl,
-          [{"grant_type", "device_code"},
-           {"device_code", DeviceCode}],
-          [basic_http_auth_client_verification_header()]),
-    handle_token_endpoint_response(HttpCode, Body).
+    handle_token_endpoint_response(
+      rdio_api_requester_manager:request(
+        ?RdioTokenEndpointUrl,
+        [{"grant_type", "device_code"},
+         {"device_code", DeviceCode}],
+        [basic_http_auth_client_verification_header()])).
 
 %% ===================================================================
 %% Tokens Refresh
@@ -236,15 +233,14 @@ authorization_url(Type, RedirectUri, Scope, State) ->
               case State of undefined -> []; _ -> [{"state", State}] end).
 
 tokens_with_refresh_token_and_request_fun(RefreshToken, RequestFun) ->
-    {ok, {{_Version, Code, _Msg}, _Header, Body}} =
-        RequestFun(
-          ?RdioTokenEndpointUrl,
-          [{<<"grant_type">>, <<"refresh_token">>},
-           {<<"refresh_token">>, RefreshToken}],
-          [basic_http_auth_client_verification_header()]),
-    handle_token_endpoint_response(Code, Body).
+    handle_token_endpoint_response(
+      RequestFun(
+        ?RdioTokenEndpointUrl,
+        [{<<"grant_type">>, <<"refresh_token">>},
+         {<<"refresh_token">>, RefreshToken}],
+        [basic_http_auth_client_verification_header()])).
 
-handle_token_endpoint_response(200, Body) ->
+handle_token_endpoint_response({ok, {{_Version, 200, _Msg}, _Header, Body}}) ->
     #{<<"token_type">> := <<"bearer">>,
       <<"access_token">> := AccessToken,
       <<"refresh_token">> := RefreshToken,
@@ -253,12 +249,14 @@ handle_token_endpoint_response(200, Body) ->
     {ok, #tokens{access_token = binary_to_list(AccessToken),
                  refresh_token = binary_to_list(RefreshToken),
                  expires = ExpiresAt}};
-handle_token_endpoint_response(400 = Code, Body) ->
+handle_token_endpoint_response({ok, {{_Version, 400, _Msg}, _Header, Body}}) ->
     #{<<"error">> := Error,
       <<"error_description">> := ErrorDescription} = jiffy:decode(Body, [return_maps]),
-    {error, {Code, {Error, ErrorDescription}}};
-handle_token_endpoint_response(Code, Body) ->
-    {error, {Code, Body}}.
+    {error, {rdio, Error, ErrorDescription}};
+handle_token_endpoint_response({ok, Res}) ->
+    {error, {unexpected_response, Res}};
+handle_token_endpoint_response({error, Reason}) ->
+    {error, {httpc, Reason}}.
 
 now_seconds() ->
     {Mega, Secs, _} = now(),
