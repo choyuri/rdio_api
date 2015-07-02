@@ -100,22 +100,22 @@ rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope ::
 After polling the user for his username and password, you can retreive the tokens:
 
 ```erl
-tokens_with_resource_owner_credentials(Username :: string(), Password :: string()) -> TokenEndpointResponse
-tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string()) -> TokenEndpointResponse
+rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string()) -> TokenEndpointResponse
+rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string()) -> TokenEndpointResponse
 ```
 
 #### Client Credentials
 
 ```erl
-tokens_with_client_credentials() -> TokenEndpointResponse
-tokens_with_client_credentials(Scope :: string()) -> TokenEndpointResponse
+rdio_api_authorization:tokens_with_client_credentials() -> TokenEndpointResponse
+rdio_api_authorization:tokens_with_client_credentials(Scope :: string()) -> TokenEndpointResponse
 ```
 
 #### Device Code Grant
 
 ```erl
-start_device_code_grant() -> Return
-start_device_code_grant(Scope) -> Return
+rdio_api_authorization:start_device_code_grant() -> Return
+rdio_api_authorization:start_device_code_grant(Scope) -> Return
 ```
 
 Types:
@@ -129,7 +129,7 @@ Note that `ExpirationTimestamp` is not the number of seconds until the device co
 You can then poll the token endpoint with:
 
 ```erl
-tokens_with_device_code(DeviceCode :: binary() | string()) -> TokenEndpointResponse
+rdio_api_authorization:tokens_with_device_code(DeviceCode :: binary() | string()) -> TokenEndpointResponse
 ```
 
 ### Requests
