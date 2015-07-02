@@ -9,11 +9,11 @@ This is an Erlang wrapper for the [Rdio API](http://www.rdio.com/developers/). I
 Set your applications Client ID and Client Secret as environment variables in string format before you start the application.
 
 ```erl
-application:set_env(rdio_api, client_secret, "my-client-secret-here"),
 application:set_env(rdio_api, client_id, "my-client-id-here")
+application:set_env(rdio_api, client_secret, "my-client-secret-here"),
 ```
 
-Optionally you may specify the rate limit for your app (default is 10 calls per second, `{10, 1000}`).
+Optionally, you may specify the rate limit for your app (default is 10 calls per second, `{10, 1000}`).
 
 ```erl
 application:set_env(rdio_api, rate_limit, {MaxCalls, TimeframeInMilliseconds})
@@ -47,7 +47,7 @@ Using the `rdio_api_authorization:tokens_with_AuthorizationMethod` or `rdio_api_
 -type client_secret() :: string().
 ```
 
-In addition to that the following types apply in the documentation:
+In addition to that, the following types apply in the documentation:
 
 ```erl
 TokenEndpointResponse = {ok, tokens()} | {error, {400, {Error :: binary(), ErrorDesciption :: binary()}} | {HttpCode, HttpBody}}
@@ -64,6 +64,8 @@ rdio_api_authorization:expires(Tokens) -> non_neg_integer()
 rdio_api_authorization:tokens(RefreshToken :: string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
 ```
 
+In case you need them:
+
 ```erl
 rdio_api_authorization:client_id() -> string()
 rdio_api_authorization:client_secret() -> string()
@@ -71,12 +73,12 @@ rdio_api_authorization:client_secret() -> string()
 
 #### Authorization Code Grant
 
-Obtain the URL you have to redirect the user to. You can also obtain the Client ID usign `rdio_api_authorization:client_id() -> string()` and construct the URL manually.
+Obtain the URL you have to redirect the user to. Note that you can also obtain the Client ID usign `rdio_api_authorization:client_id/0)` and construct the URL manually.
 
 ```erl
 rdio_api_authorization:code_authorization_url(RedirectUri :: string()) -> string()
-rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string()) -> string()
-rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string(), State :: string()) -> string()
+rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string() | undefined) -> string()
+rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined) -> string()
 ```
 
 When the user has allowed your application to access their account and you have received the authorization code, turn it into the opque tokens type:
@@ -91,8 +93,8 @@ Get the URL you have to redirect the user to:
 
 ```erl
 rdio_api_authorization:token_authorization_url(RedirectUri :: string()) -> string()
-rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string()) -> string()
-rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string(), State :: string()) -> string()
+rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined) -> string()
+rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined) -> string()
 ```
 
 #### Resource Owner Credential
@@ -101,21 +103,21 @@ After polling the user for his username and password, you can retreive the token
 
 ```erl
 rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string()) -> TokenEndpointResponse
-rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string()) -> TokenEndpointResponse
+rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string() | undefined) -> TokenEndpointResponse
 ```
 
 #### Client Credentials
 
 ```erl
 rdio_api_authorization:tokens_with_client_credentials() -> TokenEndpointResponse
-rdio_api_authorization:tokens_with_client_credentials(Scope :: string()) -> TokenEndpointResponse
+rdio_api_authorization:tokens_with_client_credentials(Scope :: string() | undefined) -> TokenEndpointResponse
 ```
 
 #### Device Code Grant
 
 ```erl
 rdio_api_authorization:start_device_code_grant() -> Return
-rdio_api_authorization:start_device_code_grant(Scope) -> Return
+rdio_api_authorization:start_device_code_grant(Scope :: string() | undefined) -> Return
 ```
 
 Types:
