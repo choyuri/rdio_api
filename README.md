@@ -53,7 +53,8 @@ In addition to that, the following types apply in the documentation:
 TokenEndpointResponse = {ok, tokens()} | {error, {rdio, Error :: binary(), ErrorDescription :: binary()} | {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
 
-where `HttpcRequestResult` is the second part of the `ok`-Tuple returned by `httpc:request/1,2,4,5` and `HttpcErrorReason` the second part of the `error`-Tuple. `{rdio, Error, ErrorDescription` represents an error returned by the Rdio API, as documented [here](http://www.rdio.com/developers/docs/web-service/oauth2/overview/ref-failure).
+where `HttpcRequestResult` is the second part of the `ok`-Tuple returned by `httpc:request/1,2,4,5` and `HttpcErrorReason` the second part of the `error`-Tuple. `{rdio, Error, ErrorDescription}
+` represents an error returned by the Rdio API, as documented [here](http://www.rdio.com/developers/docs/web-service/oauth2/overview/ref-failure).
 
 #### Accessors
 
