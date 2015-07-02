@@ -184,3 +184,7 @@ Open the shown URL in your browser and allow your app to access your account. Yo
 7> {ok, Tokens} = rdio_api_authorization:tokens_with_authorization_code(Code, RedirectUri).
 8> {ok, #{<<"firstName">> := UserFirstNameBinary, <<"lastName">> := UserLastNameBinary}, Tokens2} = rdio_api:request("currentUser", [], Tokens).
 ```
+
+## Todo
+
+- Fix dialyzer types

@@ -4,6 +4,7 @@
 
 %% API
 -export([start_link/0, request/3, run_with_request_fun/1]).
+-export_type([request_fun/0]).
 %% Gen Server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -50,7 +51,7 @@ handle_cast({init, Sup}, _State) ->
            RequesterCount,
            fun () ->
                    {ok, Pid} = supervisor:start_child(RSup, []),
-                   req_fun(Pid)
+                   request_fun(Pid)
            end),
     {noreply, {queue:new(), Rs, maps:new()}};
 
@@ -72,7 +73,10 @@ terminate(_Reason, _State) ->
 %% Private
 %% ===================================================================
 
-req_fun(Pid) ->
+-type request_fun() :: fun((string(), [{binary() | string(), binary() | string()}], [{string(), string()}]) -> any()).
+
+-spec request_fun(pid()) -> request_fun().
+request_fun(Pid) ->
     fun (Url, Args, Headers) ->
             rdio_api_requester:request(Pid, {Url, Args, Headers})
     end.

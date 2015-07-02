@@ -3,6 +3,8 @@
 %% Tokens Refresh
 -export([refresh_tokens_with_request_fun/2, refresh_tokens_when_expired_with_request_fun/2]).
 
+-export_type([maybe_tokens/0]).
+
 %% All following exports are part of the applications public API. Feel free to
 %% use them anywhere you want.
 
@@ -54,7 +56,6 @@
 -type unix_timestamp() :: non_neg_integer(). % Unix timestamp in seconds.
 
 -opaque tokens() :: #tokens{}.
--type maybeTokens() :: {ok, tokens()} | {error, {binary(), binary()}}.
 
 -type client_id() :: string().
 -type client_secret() :: string().
@@ -113,7 +114,7 @@ code_authorization_url(RedirectUri, Scope) ->
 code_authorization_url(RedirectUri, Scope, State) ->
     authorization_url("code", RedirectUri, Scope, State).
 
--spec tokens_with_authorization_code(string(), string()) -> maybeTokens().
+-spec tokens_with_authorization_code(string(), string()) -> maybe_tokens().
 tokens_with_authorization_code(Code, RedirectUri) ->
     handle_token_endpoint_response(
       rdio_api_requester_manager:request(
@@ -222,7 +223,7 @@ refresh_tokens_with_request_fun(#tokens{refresh_token = RT}, RequestFun) ->
 %% Private
 %% ===================================================================
 
--spec authorization_url(string(), string(), string(), string()) -> string().
+-spec authorization_url(string(), string(), string() | undefined, string() | undefined) -> string().
 authorization_url(Type, RedirectUri, Scope, State) ->
     ?RdioAuthorizationEndpointUrl ++ "?" ++
         rdio_api_request:uri_params_encode(
@@ -240,6 +241,10 @@ tokens_with_refresh_token_and_request_fun(RefreshToken, RequestFun) ->
          {<<"refresh_token">>, RefreshToken}],
         [basic_http_auth_client_verification_header()])).
 
+-type tokens_error() :: {rdio, binary(), binary()} | {unexpected_response, any()} | {httpc, any()}.
+-type maybe_tokens() :: {ok, tokens()} | {error, tokens_error()}.
+
+-spec handle_token_endpoint_response(any()) -> maybe_tokens().
 handle_token_endpoint_response({ok, {{_Version, 200, _Msg}, _Header, Body}}) ->
     #{<<"token_type">> := <<"bearer">>,
       <<"access_token">> := AccessToken,
