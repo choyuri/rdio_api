@@ -188,7 +188,7 @@ handle_device_code_grant_response({ok, {{_Version, 200, _Msg}, _Header, Body}}) 
     #{<<"device_code">> := DeviceCode,
       <<"verification_url">> := VerificationUrl,
       <<"expires_in_s">> := ExpiresIn,
-      <<"interval_s">> := Interval} = jiffy:decode(Body),
+      <<"interval_s">> := Interval} = jiffy:decode(Body, [return_maps]),
     {ok, DeviceCode, VerificationUrl, now_seconds() + ExpiresIn, Interval};
 handle_device_code_grant_response({ok, Res}) ->
     {error, {unexpected_response, Res}};
