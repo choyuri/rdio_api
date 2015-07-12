@@ -109,13 +109,6 @@ rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string
 rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string() | undefined) -> TokenEndpointResponse
 ```
 
-#### Client Credentials
-
-```erl
-rdio_api_authorization:tokens_with_client_credentials() -> TokenEndpointResponse
-rdio_api_authorization:tokens_with_client_credentials(Scope :: string() | undefined) -> TokenEndpointResponse
-```
-
 #### Device Code Grant
 
 ```erl
@@ -188,3 +181,4 @@ Open the shown URL in your browser and allow your app to access your account. Yo
 ## Todo
 
 - Fix dialyzer types
+- Client credentials auth
