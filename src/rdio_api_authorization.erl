@@ -155,6 +155,21 @@ tokens_with_resource_owner_credentials(Username, Password, Scope) ->
         [basic_http_auth_client_verification_header()])).
 
 %% ===================================================================
+%% Client Credentials
+%% ===================================================================
+
+tokens_with_client_credentials() ->
+    tokens_with_client_credentials(undefined).
+
+tokens_with_client_credentials(Scope) ->
+    handle_token_endpoint_response(
+      rdio_api_requester_manager:request(
+        ?RdioTokenEndpointUrl,
+        [{"grant_type", "client_credentials"}] ++ 
+            case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+        [basic_http_auth_client_verification_header()])).
+
+%% ===================================================================
 %% Device Code
 %% ===================================================================
 
