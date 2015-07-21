@@ -51,11 +51,14 @@
                  access_token :: access_token(),
                  expires = 0 :: unix_timestamp()}).
 
+-record(client_credentials, {access_token :: access_token(),
+                             expires = 0 :: unix_timestamp()}).
+
 -type refresh_token() :: string().
 -type access_token() :: string().
 -type unix_timestamp() :: non_neg_integer(). % Unix timestamp in seconds.
 
--opaque tokens() :: #tokens{}.
+-opaque tokens() :: #tokens{} | #client_credentials{}.
 
 -type client_id() :: string().
 -type client_secret() :: string().
@@ -66,15 +69,24 @@
 
 -spec refresh_token(tokens()) -> refresh_token().
 refresh_token(#tokens{refresh_token = RT}) ->
-    RT.
+    RT;
+refresh_token(#client_credentials{}) ->
+    undefined.
 
 -spec access_token(tokens()) -> access_token().
 access_token(#tokens{access_token = AT}) ->
+    AT;
+access_token(#client_credentials{access_token = AT}) ->
     AT.
 
 -spec expires(tokens()) -> unix_timestamp().
 expires(#tokens{expires = E}) ->
+    E;
+expires(#client_credentials{expires = E}) ->
     E.
+
+client_credentials(AccessToken, ExpiresAt) ->
+    
 
 tokens(RefreshToken, AccessToken, ExpiresAt)
   when is_list(RefreshToken),
