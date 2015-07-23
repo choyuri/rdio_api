@@ -7,7 +7,10 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [invalid_request_token, expired_access_token, invalid_access_token, {group, parallel_expired_access_token}].
+    [invalid_request_token, 
+     expired_access_token, invalid_access_token, 
+     expired_client_credentials, invalid_client_credentials, 
+     {group, parallel_expired_access_token}].
 
 groups() ->
     [{parallel_expired_access_token, [parallel], lists:duplicate(11, expired_access_token)}].
@@ -40,6 +43,26 @@ expired_access_token(_Config) ->
 invalid_access_token(_Config) ->
     Tokens = rdio_api_authorization:tokens(ct:get_config(rdio_api_refresh_token), "expired", now_seconds() + 60*60),
     {ok, _Result, NewTokens} = rdio_api:request("currentUser", [], Tokens),
+    true = Tokens =/= NewTokens.
+
+expired_client_credentials(_Config) ->
+    Tokens = rdio_api_authorization:tokens(undefined, "expired", 0, undefined, client_credentials),
+    {ok, _Result, NewTokens} = 
+        rdio_api:request(
+          "search", 
+          [{"query", "Chiddy Bang"},
+           {"types", "Artist"}], 
+          Tokens),
+    true = Tokens =/= NewTokens.
+
+invalid_client_credentials(_Config) ->
+    Tokens = rdio_api_authorization:tokens(undefined, "invalid", now_seconds() + 60*60, undefined, client_credentials),
+    {ok, _Result, NewTokens} = 
+        rdio_api:request(
+          "search",
+          [{"query", "Chiddy Bang"},
+           {"types", "Artist"}], 
+          Tokens),
     true = Tokens =/= NewTokens.
 
 now_seconds() ->

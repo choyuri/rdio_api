@@ -29,13 +29,11 @@ application:ensure_all_started(rdio_api)
 
 ## Usage
 
-### Authorization
+### `rdio_api_authorization`
 
-Using the `rdio_api_authorization:tokens_with_AuthorizationMethod` or `rdio_api_authorization:tokens/3` functions you can obtain the opaque type `tokens()`. You pass the type into every API request and get potentially refreshed tokens back.
+Using the `tokens_with_AuthorizationMethod` or `tokens/3,5` functions you can obtain the opaque type `tokens()`. You pass the type into every API request and get potentially refreshed tokens back.
 
 #### Types
-
-`rdio_api_authorization` exports the following types:
 
 ```erl
 -opaque tokens().
@@ -53,25 +51,27 @@ In addition to that, the following types apply in the documentation:
 TokenEndpointResponse = {ok, tokens()} | {error, {rdio, Error :: binary(), ErrorDescription :: binary()} | {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
 
-where `HttpcRequestResult` is the second part of the `ok`-Tuple returned by `httpc:request/1,2,4,5` and `HttpcErrorReason` the second part of the `error`-Tuple. `{rdio, Error, ErrorDescription}
-` represents an error returned by the Rdio API, as documented [here](http://www.rdio.com/developers/docs/web-service/oauth2/overview/ref-failure).
+where `HttpcRequestResult` is the second part of the `ok`-Tuple returned by `httpc:request/1,2,4,5` and `HttpcErrorReason` the second part of the `error`-Tuple. `{rdio, Error, ErrorDescription}` represents an error returned by the Rdio API, as documented [here](http://www.rdio.com/developers/docs/web-service/oauth2/overview/ref-failure).
 
 #### Accessors
 
 Manually create tokens or access the internals of the opaque type:
 
 ```erl
-rdio_api_authorization:refresh_token(Tokens) -> string()
-rdio_api_authorization:access_token(Tokens) -> string()
-rdio_api_authorization:expires(Tokens) -> non_neg_integer()
-rdio_api_authorization:tokens(RefreshToken :: string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
+refresh_token(Tokens) -> undefined | string()
+access_token(Tokens) -> string()
+expires(Tokens) -> non_neg_integer()
+scope(Tokens) -> undefined | string()
+grant(Tokens) -> other | client_credentials
+tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
+tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer(), Scope :: undefined | string(), Grant :: other | client_credentials) -> tokens()
 ```
 
 In case you need them:
 
 ```erl
-rdio_api_authorization:client_id() -> string()
-rdio_api_authorization:client_secret() -> string()
+client_id() -> string()
+client_secret() -> string()
 ```
 
 #### Authorization Code Grant
@@ -79,15 +79,15 @@ rdio_api_authorization:client_secret() -> string()
 Obtain the URL you have to redirect the user to. Note that you can also obtain the Client ID usign `rdio_api_authorization:client_id/0)` and construct the URL manually.
 
 ```erl
-rdio_api_authorization:code_authorization_url(RedirectUri :: string()) -> string()
-rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string() | undefined) -> string()
-rdio_api_authorization:code_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined) -> string()
+code_authorization_url(RedirectUri :: string()) -> string()
+code_authorization_url(RedirectUri :: string(), Scope :: string() | undefined) -> string()
+code_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined) -> string()
 ```
 
-When the user has allowed your application to access their account and you have received the authorization code, turn it into the opque tokens type:
+When the user has allowed your application to access their account and you have received the authorization code, turn it into the opaque tokens type:
 
 ```erl
-rdio_api_authorization:tokens_with_authorization_code(Code :: string(), RedirectUri :: string()) -> TokenEndpointResponse
+tokens_with_authorization_code(Code :: string(), RedirectUri :: string()) -> TokenEndpointResponse
 ```
 
 #### Implicit Grant
@@ -95,9 +95,9 @@ rdio_api_authorization:tokens_with_authorization_code(Code :: string(), Redirect
 Get the URL you have to redirect the user to:
 
 ```erl
-rdio_api_authorization:token_authorization_url(RedirectUri :: string()) -> string()
-rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined) -> string()
-rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined) -> string()
+token_authorization_url(RedirectUri :: string()) -> string()
+token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined) -> string()
+token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined) -> string()
 ```
 
 #### Resource Owner Credential
@@ -105,22 +105,22 @@ rdio_api_authorization:token_authorization_url(RedirectUri :: string(), Scope ::
 After polling the user for his username and password, you can retreive the tokens:
 
 ```erl
-rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string()) -> TokenEndpointResponse
-rdio_api_authorization:tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string() | undefined) -> TokenEndpointResponse
+tokens_with_resource_owner_credentials(Username :: string(), Password :: string()) -> TokenEndpointResponse
+tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string() | undefined) -> TokenEndpointResponse
 ```
 
 #### Client Credentials
 
 ```erl
-rdio_api_authorization:tokens_with_client_credentials() -> TokenEndpointResponse
-rdio_api_authorization:tokens_with_client_credentials(Scope :: string() | undefined) -> TokenEndpointResponse
+tokens_with_client_credentials() -> TokenEndpointResponse
+tokens_with_client_credentials(Scope :: string() | undefined) -> TokenEndpointResponse
 ```
 
 #### Device Code Grant
 
 ```erl
-rdio_api_authorization:start_device_code_grant() -> Return
-rdio_api_authorization:start_device_code_grant(Scope :: string() | undefined) -> Return
+start_device_code_grant() -> Return
+start_device_code_grant(Scope :: string() | undefined) -> Return
 ```
 
 where
@@ -129,39 +129,39 @@ where
 Return = {ok, DeviceCode :: binary(), VerificationUrl :: binary(), ExpirationTimestamp, PollingInterval} | {error, {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
 
-Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time (in seconds) when it is expected to expire.
+Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time (in seconds, obtained with `now/0`) when it is expected to expire.
 
-You can then poll the token endpoint with:
+You can poll the token endpoint with:
 
 ```erl
-rdio_api_authorization:tokens_with_device_code(DeviceCode :: binary() | string()) -> TokenEndpointResponse
+tokens_with_device_code(DeviceCode :: binary() | string()) -> TokenEndpointResponse
 ```
 
-### Requests
+### `rdio_api`
 
 A simple API request:
 
 ```erl
-rdio_api:request(Method :: string(), Arguments :: [{Key :: string(), Value :: string()}], Tokens :: tokens()) -> {ok, MethodResult :: map(), NewTokens :: tokens()} | {error, #{ErrorType => ErrorReason} | #{tokens => NewTokens, ErrorType => ErrorReason}}
+request(Method :: string(), Arguments :: [{Key :: string(), Value :: string()}], Tokens :: tokens()) -> {ok, MethodResult :: map(), NewTokens :: tokens()} | {error, #{ErrorType => ErrorReason} | #{tokens => NewTokens, ErrorType => ErrorReason}}
 ```
 
-`MethodResult` is the parsed response from Rdio (using [`jiffy:decode/2`](https://github.com/davisp/jiffy#jiffydecode12)).
+`MethodResult` is the parsed response from Rdio (using [`jiffy:decode/2`](https://github.com/davisp/jiffy#jiffydecode12) with `return_maps` option).
 
 Sometimes you may want to perform multiple requests in quick succession, for that you can use:
 
 ```erl
-rdio_api:run(fun (Request) ->
+run(fun (Request) ->
     {ok, _MethodResult, Tokens2} = Request(Method1, Args1, Tokens1),
     {ok, _MethodResult, Tokens3} = Request(Method2, Args2, Tokens2),
     ...
 end)
 ```
 
-`Request` behaves like `rdio_api:request/3`, but here the (forced) delay between the requests is _always_ the timeframe specified in the applications rate limit, e.g. one second for regular applications. Note that this method may, under low load, actually be slower then calling `rdio_api:request/3` multiple times. Anyway, if you want a guarantee, use this function.
+`Request` behaves like `request/3`, but here the (forced) delay between the requests is _always_ the timeframe specified in the applications rate limit, e.g. one second for regular applications. Note that this method may under low load actually be slower then calling `request/3` multiple times. Anyway, if you want a guarantee, use this method.
 
 ## Examples
 
-### Complete setup guide
+### Authorization Code Grant and API request
 
 Create an app at [www.rdio.com/developers/your-apps](http://www.rdio.com/developers/your-apps/). Add `http://localhost/` as redirect URI.
 
@@ -185,6 +185,7 @@ Open the shown URL in your browser and allow your app to access your account. Yo
 8> {ok, #{<<"firstName">> := UserFirstNameBinary, <<"lastName">> := UserLastNameBinary}, Tokens2} = rdio_api:request("currentUser", [], Tokens).
 ```
 
-## Todo
+# Todo
 
+- Test device code grant and implicit grant
 - Fix dialyzer types

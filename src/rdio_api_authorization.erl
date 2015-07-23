@@ -9,7 +9,7 @@
 %% use them anywhere you want.
 
 %% Authorization Code Grant
--export([code_authorization_url/1, code_authorization_url/2, code_authorization_url/3, 
+-export([code_authorization_url/1, code_authorization_url/2, code_authorization_url/3,
          tokens_with_authorization_code/2]).
 
 %% Implicit Grant
@@ -30,10 +30,17 @@
 -export_type([client_id/0, client_secret/0]).
 
 %% Tokens
--export([tokens/3,
-         refresh_token/1, access_token/1, expires/1]).
+-export([tokens/5, tokens/3,
+         refresh_token/1, access_token/1, expires/1, scope/1, grant/1]).
 -export_type([tokens/0,
               refresh_token/0, access_token/0]).
+
+%% ===================================================================
+%% Helper
+%% ===================================================================
+
+-define(MaybeArg(Name, Value),
+        case Value of undefined -> []; _ -> [{Name, Value}] end).
 
 %% ===================================================================
 %% URLs
@@ -47,18 +54,18 @@
 %% Types
 %% ===================================================================
 
--record(tokens, {refresh_token :: refresh_token(),
+-record(tokens, {refresh_token = undefined :: undefined | refresh_token(),
                  access_token :: access_token(),
-                 expires = 0 :: unix_timestamp()}).
-
--record(client_credentials, {access_token :: access_token(),
-                             expires = 0 :: unix_timestamp()}).
+                 expires = 0 :: unix_timestamp(),
+                 scope = undefined :: undefined | string(),
+                 grant = other :: client_credentials | other}). % Needed for
+                   % refreshing client credentials.
 
 -type refresh_token() :: string().
 -type access_token() :: string().
 -type unix_timestamp() :: non_neg_integer(). % Unix timestamp in seconds.
 
--opaque tokens() :: #tokens{} | #client_credentials{}.
+-opaque tokens() :: #tokens{}.
 
 -type client_id() :: string().
 -type client_secret() :: string().
@@ -69,33 +76,40 @@
 
 -spec refresh_token(tokens()) -> refresh_token().
 refresh_token(#tokens{refresh_token = RT}) ->
-    RT;
-refresh_token(#client_credentials{}) ->
-    undefined.
+    RT.
 
 -spec access_token(tokens()) -> access_token().
 access_token(#tokens{access_token = AT}) ->
-    AT;
-access_token(#client_credentials{access_token = AT}) ->
     AT.
 
 -spec expires(tokens()) -> unix_timestamp().
 expires(#tokens{expires = E}) ->
-    E;
-expires(#client_credentials{expires = E}) ->
     E.
 
-client_credentials(AccessToken, ExpiresAt) ->
-    
+scope(#tokens{scope = S}) ->
+    S.
 
+grant(#tokens{grant = G}) ->
+    G.
+
+%% TODO: Complete Guards
 tokens(RefreshToken, AccessToken, ExpiresAt)
-  when is_list(RefreshToken),
-       is_list(AccessToken),
+  when is_list(AccessToken),
        is_integer(ExpiresAt),
        ExpiresAt >= 0 ->
     #tokens{access_token = AccessToken,
             refresh_token = RefreshToken,
             expires = ExpiresAt}.
+
+tokens(RefreshToken, AccessToken, ExpiresAt, Scope, Grant)
+  when is_list(AccessToken),
+       is_integer(ExpiresAt),
+       ExpiresAt >= 0 ->
+    #tokens{access_token = AccessToken,
+            refresh_token = RefreshToken,
+            expires = ExpiresAt,
+            scope = Scope,
+            grant = Grant}.
 
 %% ===================================================================
 %% Client API
@@ -162,8 +176,7 @@ tokens_with_resource_owner_credentials(Username, Password, Scope) ->
         ?RdioTokenEndpointUrl,
         [{"grant_type", "password"},
          {"username", Username},
-         {"password", Password}] ++ 
-            case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+         {"password", Password}] ++ ?MaybeArg("scope", Scope),
         [basic_http_auth_client_verification_header()])).
 
 %% ===================================================================
@@ -174,12 +187,19 @@ tokens_with_client_credentials() ->
     tokens_with_client_credentials(undefined).
 
 tokens_with_client_credentials(Scope) ->
-    handle_token_endpoint_response(
-      rdio_api_requester_manager:request(
-        ?RdioTokenEndpointUrl,
-        [{"grant_type", "client_credentials"}] ++ 
-            case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
-        [basic_http_auth_client_verification_header()])).
+    tokens_with_client_credentials_and_request_fun(Scope, fun rdio_api_requester_manager:request/3).
+
+tokens_with_client_credentials_and_request_fun(Scope, RequestFun) ->
+    case
+        handle_token_endpoint_response(
+          RequestFun(
+            ?RdioTokenEndpointUrl,
+            [{"grant_type", "client_credentials"}] ++ ?MaybeArg("scope", Scope),
+            [basic_http_auth_client_verification_header()]))
+    of
+        {ok, Tokens} -> {ok, Tokens#tokens{grant = client_credentials}};
+        Other -> Other
+    end.
 
 %% ===================================================================
 %% Device Code
@@ -192,8 +212,7 @@ start_device_code_grant(Scope) ->
     handle_device_code_grant_response(
       rdio_api_requester_manager:request(
         ?RdioDeviceCodeEndpointUrl,
-        [{"client_id", client_id()}] ++ 
-            case Scope of undefined -> []; _ -> [{"scope", Scope}] end,
+        [{"client_id", client_id()}] ++ ?MaybeArg("scope", Scope),
         [])).
 
 handle_device_code_grant_response({ok, {{_Version, 200, _Msg}, _Header, Body}}) ->
@@ -228,8 +247,10 @@ refresh_tokens_when_expired_with_request_fun(#tokens{expires = E} = Tokens, Requ
             refresh_tokens_with_request_fun(Tokens, RequestFun)
     end.
 
-refresh_tokens_with_request_fun(#tokens{refresh_token = RT}, RequestFun) ->
-    tokens_with_refresh_token_and_request_fun(RT, RequestFun).
+refresh_tokens_with_request_fun(#tokens{grant = client_credentials, scope = Scope}, RequestFun) ->
+    tokens_with_client_credentials_and_request_fun(Scope, RequestFun);
+refresh_tokens_with_request_fun(#tokens{grant = other, refresh_token = RT, scope = Scope}, RequestFun) ->
+    tokens_with_refresh_token_and_request_fun(RT, Scope, RequestFun).
 
 %% ===================================================================
 %% Private
@@ -242,15 +263,16 @@ authorization_url(Type, RedirectUri, Scope, State) ->
           [{"response_type", Type},
            {"client_id", client_id()},
            {"redirect_uri", RedirectUri}] ++
-              case Scope of undefined -> []; _ -> [{"scope", Scope}] end ++
-              case State of undefined -> []; _ -> [{"state", State}] end).
+              ?MaybeArg("scope", Scope) ++
+              ?MaybeArg("state", State)).
 
-tokens_with_refresh_token_and_request_fun(RefreshToken, RequestFun) ->
+tokens_with_refresh_token_and_request_fun(RefreshToken, Scope, RequestFun) ->
     handle_token_endpoint_response(
       RequestFun(
         ?RdioTokenEndpointUrl,
         [{<<"grant_type">>, <<"refresh_token">>},
-         {<<"refresh_token">>, RefreshToken}],
+         {<<"refresh_token">>, RefreshToken}] ++
+            ?MaybeArg("scope", Scope),
         [basic_http_auth_client_verification_header()])).
 
 -type tokens_error() :: {rdio, binary(), binary()} | {unexpected_response, any()} | {httpc, any()}.
@@ -258,14 +280,8 @@ tokens_with_refresh_token_and_request_fun(RefreshToken, RequestFun) ->
 
 -spec handle_token_endpoint_response(any()) -> maybe_tokens().
 handle_token_endpoint_response({ok, {{_Version, 200, _Msg}, _Header, Body}}) ->
-    #{<<"token_type">> := <<"bearer">>,
-      <<"access_token">> := AccessToken,
-      <<"refresh_token">> := RefreshToken,
-      <<"expires_in">> := AccessTokenLifetime} = jiffy:decode(Body, [return_maps]),
-    ExpiresAt = now_seconds() + AccessTokenLifetime,
-    {ok, #tokens{access_token = binary_to_list(AccessToken),
-                 refresh_token = binary_to_list(RefreshToken),
-                 expires = ExpiresAt}};
+    handle_rdio_token_endpoint_response(
+      jiffy:decode(Body, [return_maps]));
 handle_token_endpoint_response({ok, {{_Version, 400, _Msg}, _Header, Body}}) ->
     #{<<"error">> := Error,
       <<"error_description">> := ErrorDescription} = jiffy:decode(Body, [return_maps]),
@@ -274,6 +290,30 @@ handle_token_endpoint_response({ok, Res}) ->
     {error, {unexpected_response, Res}};
 handle_token_endpoint_response({error, Reason}) ->
     {error, {httpc, Reason}}.
+
+%% For client credentials grant no refresh token is returned.
+handle_rdio_token_endpoint_response(#{<<"token_type">> := <<"bearer">>,
+                                      <<"access_token">> := AccessToken,
+                                      <<"expires_in">> := AccessTokenLifetime}) ->
+    ExpiresAt = now_seconds() + AccessTokenLifetime,
+    {ok, #tokens{access_token = binary_to_list(AccessToken),
+                 expires = ExpiresAt}};
+handle_rdio_token_endpoint_response(Map) ->
+    ["bearer", AccessToken, RefreshToken, AccessTokenLifetime, Scope] =
+        lists:map(
+          fun (Key) ->
+                  case maps:get(Key, Map, undefined) of
+                      Binary when is_binary(Binary) ->
+                          binary_to_list(Binary);
+                      Other -> Other
+                  end
+          end,
+          [<<"token_type">>, <<"access_token">>, <<"refresh_token">>, <<"expires_in">>, <<"scope">>]),
+    ExpiresAt = now_seconds() + AccessTokenLifetime,
+    {ok, #tokens{access_token = AccessToken,
+                 refresh_token = RefreshToken,
+                 expires = ExpiresAt,
+                 scope = Scope}}.
 
 now_seconds() ->
     {Mega, Secs, _} = now(),
