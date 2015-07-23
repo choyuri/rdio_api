@@ -76,7 +76,7 @@ client_secret() -> string()
 
 #### Authorization Code Grant
 
-Obtain the URL you have to redirect the user to. Note that you can also obtain the Client ID usign `rdio_api_authorization:client_id/0)` and construct the URL manually.
+Obtain the URL you have to redirect the user to. Note that you can also obtain the Client ID usign `client_id/0` and construct the URL manually.
 
 ```erl
 code_authorization_url(RedirectUri :: string()) -> string()
