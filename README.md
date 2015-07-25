@@ -10,7 +10,7 @@ Set your applications Client ID and Client Secret as environment variables in st
 
 ```erl
 application:set_env(rdio_api, client_id, "my-client-id-here")
-application:set_env(rdio_api, client_secret, "my-client-secret-here"),
+application:set_env(rdio_api, client_secret, "my-client-secret-here")
 ```
 
 Optionally, you may specify the rate limit for your app (default is 10 calls per second, `{10, 1000}`).
