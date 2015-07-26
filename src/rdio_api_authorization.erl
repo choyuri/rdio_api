@@ -35,6 +35,9 @@
 -export_type([tokens/0,
               refresh_token/0, access_token/0]).
 
+%% Convenience
+-export([now_seconds/0]).
+
 %% ===================================================================
 %% Helper
 %% ===================================================================
@@ -234,6 +237,10 @@ tokens_with_device_code(DeviceCode) ->
          {"device_code", DeviceCode}],
         [basic_http_auth_client_verification_header()])).
 
+now_seconds() ->
+    {Mega, Secs, _} = now(),
+    Mega*1000000 + Secs.
+
 %% ===================================================================
 %% Tokens Refresh
 %% ===================================================================
@@ -314,10 +321,6 @@ handle_rdio_token_endpoint_response(Map) ->
                  refresh_token = RefreshToken,
                  expires = ExpiresAt,
                  scope = Scope}}.
-
-now_seconds() ->
-    {Mega, Secs, _} = now(),
-    Mega*1000000 + Secs.
 
 basic_http_auth_client_verification_header() ->
     {"Authorization", "Basic " ++ base64:encode_to_string(client_id() ++ ":" ++ client_secret())}.

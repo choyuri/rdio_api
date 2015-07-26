@@ -131,7 +131,7 @@ where
 Return = {ok, DeviceCode :: binary(), VerificationUrl :: binary(), ExpirationTimestamp, PollingInterval} | {error, {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
 
-Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time (in seconds, obtained with `now/0`) when it is expected to expire. `PollingInterval` is measured in seconds.
+Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time when it is expected to expire, you can use the exported function `now_seconds/0` to check if your device code expired. `PollingInterval` is measured in seconds.
 
 You can poll the token endpoint with:
 
