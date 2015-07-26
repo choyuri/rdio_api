@@ -154,7 +154,7 @@ request(Method :: string(), Arguments :: [{Key :: string(), Value :: string()}],
 Sometimes you may want to perform multiple requests in quick succession, for that you can use:
 
 ```erl
-run(fun (Request) ->
+rdio_api:run(fun (Request) ->
     {ok, _MethodResult, Tokens2} = Request(Method1, Args1, Tokens1),
     {ok, _MethodResult, Tokens3} = Request(Method2, Args2, Tokens2),
     ...
