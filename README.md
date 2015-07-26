@@ -63,7 +63,7 @@ access_token(Tokens) -> string()
 expires(Tokens) -> non_neg_integer()
 scope(Tokens) -> undefined | string()
 grant(Tokens) -> other | client_credentials
-tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
+tokens(RefreshToken :: string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
 tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer(), Scope :: undefined | string(), Grant :: other | client_credentials) -> tokens()
 ```
 
@@ -109,6 +109,8 @@ tokens_with_resource_owner_credentials(Username :: string(), Password :: string(
 tokens_with_resource_owner_credentials(Username :: string(), Password :: string(), Scope :: string() | undefined) -> TokenEndpointResponse
 ```
 
+Note that this grant method is currently untested (althought I of course expect it to work), would be nice if someone with an API key for which Resource Owner Credential Grant is enabled could help me with that.
+
 #### Client Credentials
 
 ```erl
@@ -129,13 +131,15 @@ where
 Return = {ok, DeviceCode :: binary(), VerificationUrl :: binary(), ExpirationTimestamp, PollingInterval} | {error, {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
 
-Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time (in seconds, obtained with `now/0`) when it is expected to expire.
+Note that `ExpirationTimestamp` is not the number of seconds until the device code expires, but instead the Unix time (in seconds, obtained with `now/0`) when it is expected to expire. `PollingInterval` is measured in seconds.
 
 You can poll the token endpoint with:
 
 ```erl
 tokens_with_device_code(DeviceCode :: binary() | string()) -> TokenEndpointResponse
 ```
+
+If the user hasn't granted you access yet `{error, {rdio, <<"pending_authorization">>, _Description}}` will be returned, otherwise `{ok, Tokens}`.
 
 ### `rdio_api`
 
