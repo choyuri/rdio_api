@@ -63,7 +63,7 @@ access_token(Tokens) -> string()
 expires(Tokens) -> non_neg_integer()
 scope(Tokens) -> undefined | string()
 grant(Tokens) -> other | client_credentials
-tokens(RefreshToken :: string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
+tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
 tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer(), Scope :: undefined | string(), Grant :: other | client_credentials) -> tokens()
 ```
 
@@ -191,5 +191,5 @@ Open the shown URL in your browser and allow your app to access your account. Yo
 
 # Todo
 
-- Test device code grant and implicit grant
+- Test implicit grant
 - Fix dialyzer types
