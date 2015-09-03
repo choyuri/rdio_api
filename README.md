@@ -48,7 +48,7 @@ Using the `tokens_with_AuthorizationMethod` or `tokens/3,5` functions you can ob
 In addition to that, the following types apply in the documentation:
 
 ```erl
-TokenEndpointResponse = {ok, tokens()} | {error, {rdio, Error :: binary(), ErrorDescription :: binary()} | {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
+TokenEndpointResponse = {ok, tokens()} | {error, implicit_grant | {rdio, Error :: binary(), ErrorDescription :: binary()} | {unexpected_response, HttpcRequestResult} | {httpc, HttpcErrorReason}}
 ```
 
 where `HttpcRequestResult` is the second part of the `ok`-Tuple returned by `httpc:request/1,2,4,5` and `HttpcErrorReason` the second part of the `error`-Tuple. `{rdio, Error, ErrorDescription}` represents an error returned by the Rdio API, as documented [here](http://www.rdio.com/developers/docs/web-service/oauth2/overview/ref-failure).
@@ -58,13 +58,11 @@ where `HttpcRequestResult` is the second part of the `ok`-Tuple returned by `htt
 Manually create tokens or access the internals of the opaque type:
 
 ```erl
-refresh_token(Tokens) -> undefined | string()
 access_token(Tokens) -> string()
 expires(Tokens) -> non_neg_integer()
 scope(Tokens) -> undefined | string()
-grant(Tokens) -> other | client_credentials
-tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer()) -> tokens()
-tokens(RefreshToken :: undefined | string(), AccessToken :: string(), ExpirationTimestamp :: non_neg_integer(), Scope :: undefined | string(), Grant :: other | client_credentials) -> tokens()
+refresh_method(Tokens) -> {refresh_token, RefreshToken :: string()} | client_credentials | implicit
+tokens(AccessToken :: string(), ExpirationTimestamp :: non_neg_integer(), Scope :: undefined | string(), RefreshMethod :: {refresh_token, RefreshToken :: string()} | client_credentials | implicit) -> tokens()
 ```
 
 In case you need them:
@@ -98,7 +96,22 @@ Get the URL you have to redirect the user to:
 token_authorization_url(RedirectUri :: string()) -> string()
 token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined) -> string()
 token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined) -> string()
+token_authorization_url(RedirectUri :: string(), Scope :: string() | undefined, State :: string() | undefined, Extra :: [{Key :: string(), Value :: string()}]) -> string()
 ```
+
+`Extra` is a list of [additional query parameters](http://www.rdio.com/developers/docs/web-service/oauth2/auth-implicit/ref-description), e.g. `mode` or `email`. When the user returns to you site you can create the tokens type with
+
+```erl
+tokens_with_implicit_grant(AccessToken :: string(), ExpiresIn :: integer()) -> tokens()
+```
+
+You can use the returned tokens type like normal tokens, when you try making a request with an expired access token the error
+
+```erl
+{error, #{refresh_tokens_error => implicit_grant}}
+```
+
+will be returned by `rdio_api:request/3` and similar.
 
 #### Resource Owner Credential
 
@@ -191,5 +204,4 @@ Open the shown URL in your browser and allow your app to access your account. Yo
 
 # Todo
 
-- Test implicit grant
 - Fix dialyzer types

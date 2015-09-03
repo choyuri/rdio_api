@@ -7,8 +7,11 @@ suite() ->
 
 all() ->
     [client_credentials
-     %% Disabled so testing does not require interaction. Worked 15-07-22:
+     %% Disabled so testing does not require interaction. 
+     %% Worked 15-07-22:
      %% authorization_code
+     %% Worked 15-09-03:
+     %% implicit_grant
      %% Worked 15-07-26:
      %% device_code
     ].
@@ -34,6 +37,21 @@ receive_authorization_code(Url) ->
     Code = receive Msg -> Msg end,
     ct:print("Received code ~p.", [Code]),
     Code.
+
+implicit_grant(_Config) ->
+    RedirectUri = "http://localhost:8080/oauth-callback",
+    Url = rdio_api_authorization:token_authorization_url(RedirectUri),
+    {AccessToken, AccessTokenLifetime} = receive_implicit_grant(Url),
+    ct:timetrap({seconds, 10}),
+    Tokens = rdio_api_authorization:tokens_with_implicit_grant(AccessToken, AccessTokenLifetime),
+    {ok, _Result, _NewTokens} = rdio_api:request("currentUser", [], Tokens).    
+    
+receive_implicit_grant(Url) ->
+    ct:print(" Open ~n~s~n in a browser and send the \"access_token\" and \"expires_in\" query parameters of the URI you are redirected to, to ~p using~nlist_to_pid(\"~p\") ! {AccessToken, ExpiresIn}.", [Url, self(), self()]),
+    ct:timetrap(infinity),
+    Grant = receive Msg -> Msg end,
+    ct:print("Received grant ~p.", [Grant]),
+    Grant.
 
 client_credentials(_Config) ->
     {ok, Tokens} = rdio_api_authorization:tokens_with_client_credentials(),

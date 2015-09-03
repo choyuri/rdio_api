@@ -13,7 +13,8 @@
          tokens_with_authorization_code/2]).
 
 %% Implicit Grant
--export([token_authorization_url/1, token_authorization_url/2, token_authorization_url/3]).
+-export([token_authorization_url/1, token_authorization_url/2, token_authorization_url/3, token_authorization_url/4,
+         tokens_with_implicit_grant/2]).
 
 %% Resource Owner Credential
 -export([tokens_with_resource_owner_credentials/2, tokens_with_resource_owner_credentials/3]).
@@ -30,8 +31,8 @@
 -export_type([client_id/0, client_secret/0]).
 
 %% Tokens
--export([tokens/5, tokens/3,
-         refresh_token/1, access_token/1, expires/1, scope/1, grant/1]).
+-export([tokens/4, tokens/3,
+         access_token/1, expires/1, scope/1, refresh_method/1, refresh_token/1]).
 -export_type([tokens/0,
               refresh_token/0, access_token/0]).
 
@@ -57,12 +58,10 @@
 %% Types
 %% ===================================================================
 
--record(tokens, {refresh_token = undefined :: undefined | refresh_token(),
-                 access_token :: access_token(),
+-record(tokens, {access_token :: access_token(),
                  expires = 0 :: unix_timestamp(),
                  scope = undefined :: undefined | string(),
-                 grant = other :: client_credentials | other}). % Needed for
-                   % refreshing client credentials.
+                 refresh :: {refresh_token, refresh_token()} | client_credentials | implicit}).
 
 -type refresh_token() :: string().
 -type access_token() :: string().
@@ -77,10 +76,6 @@
 %% Tokens API
 %% ===================================================================
 
--spec refresh_token(tokens()) -> refresh_token().
-refresh_token(#tokens{refresh_token = RT}) ->
-    RT.
-
 -spec access_token(tokens()) -> access_token().
 access_token(#tokens{access_token = AT}) ->
     AT.
@@ -92,27 +87,28 @@ expires(#tokens{expires = E}) ->
 scope(#tokens{scope = S}) ->
     S.
 
-grant(#tokens{grant = G}) ->
-    G.
+refresh_method(#tokens{refresh = Refresh}) ->
+    Refresh.
 
-%% TODO: Complete Guards
-tokens(RefreshToken, AccessToken, ExpiresAt)
-  when is_list(AccessToken),
-       is_integer(ExpiresAt),
-       ExpiresAt >= 0 ->
+tokens(AccessToken, ExpiresAt, Scope, RefreshMethod) ->
     #tokens{access_token = AccessToken,
-            refresh_token = RefreshToken,
-            expires = ExpiresAt}.
-
-tokens(RefreshToken, AccessToken, ExpiresAt, Scope, Grant)
-  when is_list(AccessToken),
-       is_integer(ExpiresAt),
-       ExpiresAt >= 0 ->
-    #tokens{access_token = AccessToken,
-            refresh_token = RefreshToken,
             expires = ExpiresAt,
             scope = Scope,
-            grant = Grant}.
+            refresh = RefreshMethod}.
+
+%% For backwards compatibility.
+-spec refresh_token(tokens()) -> refresh_token().
+refresh_token(#tokens{refresh = {refresh_token, RT}}) ->
+    RT.
+
+%% Shortcut for backwards compatibility.
+tokens(RefreshToken, AccessToken, ExpiresAt)
+  when is_list(RefreshToken),
+       is_list(AccessToken),
+       is_integer(ExpiresAt), ExpiresAt >= 0 ->
+    #tokens{access_token = AccessToken,
+            expires = ExpiresAt,
+            refresh = {refresh_token, RefreshToken}}.
 
 %% ===================================================================
 %% Client API
@@ -164,7 +160,17 @@ token_authorization_url(RedirectUri, Scope) ->
     token_authorization_url(RedirectUri, Scope, undefined).
 
 token_authorization_url(RedirectUri, Scope, State) ->
-    authorization_url("token", RedirectUri, Scope, State).
+    token_authorization_url(RedirectUri, Scope, State, []).
+
+token_authorization_url(RedirectUri, Scope, State, Extra) ->
+    authorization_url("token", RedirectUri, Scope, State, Extra).
+
+%% Scope can be obmitted because it is only needed for refreshing, since
+%% implicit grant tokens can not be refreshed this is ok.
+tokens_with_implicit_grant(AccessToken, AccessTokenLifetime) ->
+    #tokens{access_token = AccessToken,
+            expires = now_seconds() + AccessTokenLifetime,
+            refresh = implicit}.
 
 %% ===================================================================
 %% Resource Owner Credential
@@ -200,7 +206,7 @@ tokens_with_client_credentials_and_request_fun(Scope, RequestFun) ->
             [{"grant_type", "client_credentials"}] ++ ?MaybeArg("scope", Scope),
             [basic_http_auth_client_verification_header()]))
     of
-        {ok, Tokens} -> {ok, Tokens#tokens{grant = client_credentials}};
+        {ok, Tokens} -> {ok, Tokens#tokens{refresh = client_credentials}};
         Other -> Other
     end.
 
@@ -254,24 +260,30 @@ refresh_tokens_when_expired_with_request_fun(#tokens{expires = E} = Tokens, Requ
             refresh_tokens_with_request_fun(Tokens, RequestFun)
     end.
 
-refresh_tokens_with_request_fun(#tokens{grant = client_credentials, scope = Scope}, RequestFun) ->
+refresh_tokens_with_request_fun(#tokens{refresh = client_credentials, scope = Scope}, RequestFun) ->
     tokens_with_client_credentials_and_request_fun(Scope, RequestFun);
-refresh_tokens_with_request_fun(#tokens{grant = other, refresh_token = RT, scope = Scope}, RequestFun) ->
-    tokens_with_refresh_token_and_request_fun(RT, Scope, RequestFun).
+refresh_tokens_with_request_fun(#tokens{refresh = {refresh_token, RT}, scope = Scope}, RequestFun) ->
+    tokens_with_refresh_token_and_request_fun(RT, Scope, RequestFun);
+refresh_tokens_with_request_fun(#tokens{refresh = implicit}, _RequestFun) ->
+    {error, implicit_grant}.
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
--spec authorization_url(string(), string(), string() | undefined, string() | undefined) -> string().
 authorization_url(Type, RedirectUri, Scope, State) ->
+    authorization_url(Type, RedirectUri, Scope, State, []).
+
+-spec authorization_url(string(), string(), string() | undefined, string() | undefined) -> string().
+authorization_url(Type, RedirectUri, Scope, State, Extra) ->
     ?RdioAuthorizationEndpointUrl ++ "?" ++
         rdio_api_request:uri_params_encode(
           [{"response_type", Type},
            {"client_id", client_id()},
            {"redirect_uri", RedirectUri}] ++
               ?MaybeArg("scope", Scope) ++
-              ?MaybeArg("state", State)).
+              ?MaybeArg("state", State) ++
+              Extra).
 
 tokens_with_refresh_token_and_request_fun(RefreshToken, Scope, RequestFun) ->
     handle_token_endpoint_response(
@@ -282,7 +294,7 @@ tokens_with_refresh_token_and_request_fun(RefreshToken, Scope, RequestFun) ->
             ?MaybeArg("scope", Scope),
         [basic_http_auth_client_verification_header()])).
 
--type tokens_error() :: {rdio, binary(), binary()} | {unexpected_response, any()} | {httpc, any()}.
+-type tokens_error() :: implicit_grant | {rdio, binary(), binary()} | {unexpected_response, any()} | {httpc, any()}.
 -type maybe_tokens() :: {ok, tokens()} | {error, tokens_error()}.
 
 -spec handle_token_endpoint_response(any()) -> maybe_tokens().
@@ -298,13 +310,6 @@ handle_token_endpoint_response({ok, Res}) ->
 handle_token_endpoint_response({error, Reason}) ->
     {error, {httpc, Reason}}.
 
-%% For client credentials grant no refresh token is returned.
-handle_rdio_token_endpoint_response(#{<<"token_type">> := <<"bearer">>,
-                                      <<"access_token">> := AccessToken,
-                                      <<"expires_in">> := AccessTokenLifetime}) ->
-    ExpiresAt = now_seconds() + AccessTokenLifetime,
-    {ok, #tokens{access_token = binary_to_list(AccessToken),
-                 expires = ExpiresAt}};
 handle_rdio_token_endpoint_response(Map) ->
     ["bearer", AccessToken, RefreshToken, AccessTokenLifetime, Scope] =
         lists:map(
@@ -317,10 +322,14 @@ handle_rdio_token_endpoint_response(Map) ->
           end,
           [<<"token_type">>, <<"access_token">>, <<"refresh_token">>, <<"expires_in">>, <<"scope">>]),
     ExpiresAt = now_seconds() + AccessTokenLifetime,
-    {ok, #tokens{access_token = AccessToken,
-                 refresh_token = RefreshToken,
-                 expires = ExpiresAt,
-                 scope = Scope}}.
+    Tokens = #tokens{access_token = AccessToken,
+                     expires = ExpiresAt,
+                     scope = Scope},
+    {ok,
+     case RefreshToken of
+         undefined -> Tokens;
+         _ -> Tokens#tokens{refresh = {refresh_token, RefreshToken}}
+     end}.
 
 basic_http_auth_client_verification_header() ->
     {"Authorization", "Basic " ++ base64:encode_to_string(client_id() ++ ":" ++ client_secret())}.

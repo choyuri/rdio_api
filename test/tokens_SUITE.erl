@@ -3,13 +3,14 @@
 -compile(export_all).
 
 suite() ->
-    [{require, rdio_api_refresh_token}, 
+    [{require, rdio_api_refresh_token},
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [invalid_request_token, 
-     expired_access_token, invalid_access_token, 
-     expired_client_credentials, invalid_client_credentials, 
+    [invalid_request_token,
+     expired_access_token, invalid_access_token,
+     expired_implicit_grant_tokens,
+     expired_client_credentials, invalid_client_credentials,
      {group, parallel_expired_access_token}].
 
 groups() ->
@@ -29,39 +30,42 @@ end_per_group(_Group, Config) ->
     Config.
 
 invalid_request_token(_Config) ->
-    Tokens = rdio_api_authorization:tokens("invalid", "expired", 0),
+    Tokens = rdio_api_authorization:tokens("expired", 0, undefined, {refresh_token, "invalid"}),
     {error, _Error} = rdio_api:request("currentUser", [], Tokens). % TODO: Test
       % for specific error.
 
 expired_access_token(_Config) ->
-    RefreshToken = ct:get_config(rdio_api_refresh_token),
-    ct:log("RefreshToken = ~p", [RefreshToken]),
-    Tokens = rdio_api_authorization:tokens(RefreshToken, "expired", 0),
+    Tokens = rdio_api_authorization:tokens("expired", 0, undefined, {refresh_token, ct:get_config(rdio_api_refresh_token)}),
     {ok, _Result, NewTokens} = rdio_api:request("currentUser", [], Tokens),
     true = Tokens =/= NewTokens.
 
 invalid_access_token(_Config) ->
-    Tokens = rdio_api_authorization:tokens(ct:get_config(rdio_api_refresh_token), "expired", now_seconds() + 60*60),
+    Tokens = rdio_api_authorization:tokens("invalid", now_seconds() + 60*60, undefined, {refresh_token, ct:get_config(rdio_api_refresh_token)}),
     {ok, _Result, NewTokens} = rdio_api:request("currentUser", [], Tokens),
     true = Tokens =/= NewTokens.
 
+expired_implicit_grant_tokens(_Config) ->
+    Tokens = rdio_api_authorization:tokens_with_implicit_grant("expired", 1),
+    timer:sleep(2000),
+    {error, #{refresh_tokens_error := implicit_grant}} = rdio_api:request("currentUser", [], Tokens).
+
 expired_client_credentials(_Config) ->
-    Tokens = rdio_api_authorization:tokens(undefined, "expired", 0, undefined, client_credentials),
-    {ok, _Result, NewTokens} = 
+    Tokens = rdio_api_authorization:tokens("expired", 0, undefined, client_credentials),
+    {ok, _Result, NewTokens} =
         rdio_api:request(
-          "search", 
+          "search",
           [{"query", "Chiddy Bang"},
-           {"types", "Artist"}], 
+           {"types", "Artist"}],
           Tokens),
     true = Tokens =/= NewTokens.
 
 invalid_client_credentials(_Config) ->
-    Tokens = rdio_api_authorization:tokens(undefined, "invalid", now_seconds() + 60*60, undefined, client_credentials),
-    {ok, _Result, NewTokens} = 
+    Tokens = rdio_api_authorization:tokens("invalid", now_seconds() + 60*60, undefined, client_credentials),
+    {ok, _Result, NewTokens} =
         rdio_api:request(
           "search",
           [{"query", "Chiddy Bang"},
-           {"types", "Artist"}], 
+           {"types", "Artist"}],
           Tokens),
     true = Tokens =/= NewTokens.
 
